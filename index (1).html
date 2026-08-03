@@ -1,0 +1,1339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JMD DIGIT ANALYSER</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Exo+2:wght@300;400;600&display=swap');
+
+:root {
+  --bg: #030d1a;
+  --panel: #071828;
+  --card: #0a1f33;
+  --input: #061422;
+  --border: #0e3a5c;
+  --border-hi: #1a6a9a;
+  --cyan: #00e5ff;
+  --cyan-d: #007aa3;
+  --green: #00ff88;
+  --green-d: #00a855;
+  --yellow: #ffd600;
+  --red: #ff3d5a;
+  --purple: #c67bff;
+  --orange: #ff8c42;
+  --text: #c8e6f5;
+  --dim: #4a7a9b;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Exo 2', sans-serif;
+  font-size: 13px;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+body::before {
+  content:'';
+  position:fixed; top:0; left:0; right:0; bottom:0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,229,255,0.008) 2px, rgba(0,229,255,0.008) 4px);
+  pointer-events:none; z-index:9999;
+}
+
+/* ── HEADER ── */
+.hdr {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:10px 18px;
+  background: linear-gradient(90deg,#040f1e,#071828,#040f1e);
+  border-bottom:1px solid var(--border);
+  position:sticky; top:0; z-index:100;
+}
+.logo { display:flex; align-items:center; gap:10px; }
+.logo-hex {
+  width:38px; height:38px; background:linear-gradient(135deg,#001a2e,#003a6a);
+  border:1px solid var(--cyan-d); clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);
+  display:flex; align-items:center; justify-content:center;
+  font-family:'Orbitron',monospace; font-size:9px; font-weight:900; color:var(--cyan); letter-spacing:1px;
+}
+.logo-title { font-family:'Orbitron',monospace; font-size:14px; font-weight:700; color:var(--cyan); letter-spacing:3px; }
+.logo-sub { font-family:'Share Tech Mono',monospace; font-size:9px; color:var(--dim); letter-spacing:2px; margin-top:2px; }
+.hdr-right { display:flex; align-items:center; gap:12px; }
+.live-dot {
+  width:8px; height:8px; border-radius:50%; background:var(--red);
+  box-shadow:0 0 6px var(--red); animation:pulse 1.5s infinite;
+}
+.live-dot.on { background:var(--green); box-shadow:0 0 8px var(--green); }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+.conn-badge {
+  font-family:'Share Tech Mono',monospace; font-size:9px; letter-spacing:2px;
+  color:var(--dim); padding:3px 8px; border:1px solid var(--border); border-radius:2px;
+}
+.conn-badge.on { color:var(--green); border-color:var(--green-d); }
+
+/* ── LAYOUT ── */
+.layout { display:flex; height:calc(100vh - 57px); }
+
+/* ── SIDEBAR ── */
+.sidebar {
+  width:270px; min-width:250px; max-width:290px;
+  background:var(--panel); border-right:1px solid var(--border);
+  display:flex; flex-direction:column; gap:8px; padding:12px;
+  overflow-y:auto; height:100%; flex-shrink:0;
+  scrollbar-width:thin; scrollbar-color:var(--cyan-d) transparent;
+}
+.sidebar::-webkit-scrollbar{width:4px}
+.sidebar::-webkit-scrollbar-thumb{background:var(--cyan-d);border-radius:4px}
+
+.panel {
+  background:var(--card); border:1px solid var(--border); border-radius:4px; overflow:hidden;
+}
+.ph {
+  display:flex; align-items:center; gap:8px; padding:8px 10px;
+  border-bottom:1px solid var(--border);
+  background:linear-gradient(90deg,rgba(0,229,255,0.04),transparent);
+}
+.pdot { width:6px; height:6px; border-radius:50%; background:var(--cyan-d); flex-shrink:0; }
+.ptitle { font-family:'Orbitron',monospace; font-size:9px; font-weight:700; letter-spacing:2px; color:var(--text); }
+.pb { padding:10px; display:flex; flex-direction:column; gap:8px; }
+
+label { font-family:'Share Tech Mono',monospace; font-size:9px; color:var(--dim); letter-spacing:1px; display:block; margin-bottom:3px; }
+
+.btn-grid { display:grid; gap:4px; }
+.btn-grid.cols2 { grid-template-columns:1fr 1fr; }
+.btn-grid.cols3 { grid-template-columns:1fr 1fr 1fr; }
+.btn-grid.cols4 { grid-template-columns:repeat(4,1fr); }
+.btn-grid.cols5 { grid-template-columns:repeat(5,1fr); }
+
+.sel-btn {
+  padding:6px 4px; border:1px solid var(--border); border-radius:3px;
+  background:var(--input); color:var(--dim); cursor:pointer;
+  font-family:'Share Tech Mono',monospace; font-size:10px; letter-spacing:1px;
+  transition:all 0.15s; text-align:center;
+}
+.sel-btn:hover { border-color:var(--cyan-d); color:var(--text); }
+.sel-btn.active {
+  background:rgba(0,229,255,0.12); border-color:var(--cyan); color:var(--cyan);
+  box-shadow:0 0 6px rgba(0,229,255,0.15);
+}
+
+.conn-btn {
+  width:100%; padding:9px; border:none; border-radius:3px; cursor:pointer;
+  font-family:'Orbitron',monospace; font-size:9px; font-weight:700; letter-spacing:2px;
+  transition:all 0.2s;
+  background:linear-gradient(90deg,#003a15,#00cc44); color:#001a08;
+}
+.conn-btn:hover { box-shadow:0 0 12px rgba(0,255,136,0.3); }
+.conn-btn.active { background:linear-gradient(90deg,#1a0008,#cc1133); color:#ffc0c0; }
+
+/* ── MAIN ── */
+.main {
+  flex:1; display:flex; flex-direction:column; overflow-y:auto; min-width:0; padding:0 4px;
+}
+
+/* ── SIGNAL HERO ── */
+.signal-hero {
+  margin:10px; border-radius:6px; overflow:hidden;
+  border:1px solid var(--border);
+  background:linear-gradient(135deg,#040f1e,#071828);
+  flex-shrink:0;
+}
+.signal-hero-inner {
+  display:grid; grid-template-columns:1fr auto 1fr; gap:0; min-height:90px;
+}
+.sh-left, .sh-right { padding:12px 16px; display:flex; flex-direction:column; justify-content:center; gap:6px; }
+.sh-right { text-align:right; align-items:flex-end; }
+.sh-center {
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  padding:12px 20px; border-left:1px solid var(--border); border-right:1px solid var(--border);
+  background:rgba(0,229,255,0.03); min-width:180px;
+}
+.sh-label { font-family:'Share Tech Mono',monospace; font-size:8px; color:var(--dim); letter-spacing:2px; }
+.sh-val { font-family:'Orbitron',monospace; font-size:22px; font-weight:900; color:var(--cyan); letter-spacing:2px; }
+.sh-sub { font-family:'Share Tech Mono',monospace; font-size:9px; color:var(--dim); letter-spacing:1px; margin-top:2px; }
+.signal-pill {
+  padding:6px 16px; border-radius:20px; border:1px solid;
+  font-family:'Orbitron',monospace; font-size:11px; font-weight:700; letter-spacing:2px;
+  display:inline-flex; align-items:center; gap:6px;
+}
+.signal-pill.wait { border-color:var(--dim); color:var(--dim); background:transparent; }
+.signal-pill.ready { border-color:var(--green); color:var(--green); background:rgba(0,255,136,0.08); box-shadow:0 0 10px rgba(0,255,136,0.2); }
+.signal-pill.caution { border-color:var(--yellow); color:var(--yellow); background:rgba(255,214,0,0.06); }
+.signal-pill.avoid { border-color:var(--red); color:var(--red); background:rgba(255,61,90,0.06); }
+
+/* ── CONF BAR ── */
+.conf-wrap { margin:0 10px 10px; flex-shrink:0; }
+.conf-bar-bg {
+  height:6px; background:rgba(255,255,255,0.04); border-radius:3px; overflow:hidden;
+  position:relative;
+}
+.conf-bar-fill {
+  height:100%; width:0%; transition:width 0.3s, background 0.3s; border-radius:3px;
+  background:var(--green);
+}
+.conf-labels {
+  display:flex; justify-content:space-between; margin-top:3px;
+  font-family:'Share Tech Mono',monospace; font-size:8px; color:var(--dim); letter-spacing:1px;
+}
+
+/* ── HEATMAP ── */
+.heatmap-wrap { margin:0 10px 10px; flex-shrink:0; }
+.heatmap-title {
+  font-family:'Share Tech Mono',monospace; font-size:9px; color:var(--dim);
+  letter-spacing:2px; margin-bottom:6px; display:flex; justify-content:space-between;
+}
+.heatmap-grid { display:grid; grid-template-columns:repeat(10,1fr); gap:3px; }
+.hm-cell {
+  border-radius:3px; padding:5px 2px; text-align:center; border:1px solid transparent;
+  transition:all 0.4s; position:relative; cursor:default;
+}
+.hm-digit {
+  font-family:'Orbitron',monospace; font-size:11px; font-weight:700; color:var(--text);
+}
+.hm-pct { font-family:'Share Tech Mono',monospace; font-size:8px; color:var(--dim); margin-top:2px; }
+.hm-streak { font-family:'Share Tech Mono',monospace; font-size:7px; margin-top:1px; }
+
+/* ── TICKS STRIP ── */
+.ticks-wrap { margin:0 10px 10px; flex-shrink:0; }
+.ticks-title {
+  font-family:'Share Tech Mono',monospace; font-size:9px; color:var(--dim);
+  letter-spacing:2px; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;
+}
+.ticks-strip {
+  display:flex; gap:4px; overflow-x:auto; padding-bottom:4px;
+  scrollbar-width:thin; scrollbar-color:var(--cyan-d) transparent;
+}
+.ticks-strip::-webkit-scrollbar{height:3px}
+.ticks-strip::-webkit-scrollbar-thumb{background:var(--cyan-d)}
+.tick-chip {
+  flex-shrink:0; width:28px; height:32px; border-radius:3px;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px;
+  border:1px solid var(--border); background:var(--card);
+  font-family:'Orbitron',monospace; font-size:11px; font-weight:700;
+  transition:all 0.2s;
+}
+.tick-chip.new { box-shadow:0 0 8px rgba(0,229,255,0.4); border-color:var(--cyan); }
+.tick-chip-label { font-family:'Share Tech Mono',monospace; font-size:7px; color:var(--dim); }
+
+/* ── PATTERN CARDS ── */
+.patterns-wrap { margin:0 10px 10px; display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; flex-shrink:0; }
+.pat-card {
+  background:var(--card); border:1px solid var(--border); border-radius:4px; padding:10px;
+}
+.pat-label { font-family:'Share Tech Mono',monospace; font-size:8px; color:var(--dim); letter-spacing:1px; margin-bottom:6px; }
+.pat-val { font-family:'Orbitron',monospace; font-size:16px; font-weight:700; color:var(--text); }
+.pat-sub { font-family:'Share Tech Mono',monospace; font-size:9px; margin-top:3px; }
+
+/* ── RECOMMENDATION ── */
+.rec-wrap { margin:0 10px 10px; flex-shrink:0; }
+.rec-box {
+  background:var(--card); border:1px solid var(--border); border-radius:4px; padding:12px;
+  display:grid; grid-template-columns:repeat(4,1fr); gap:10px;
+}
+.rec-item { text-align:center; }
+.rec-lbl { font-family:'Share Tech Mono',monospace; font-size:8px; color:var(--dim); letter-spacing:1px; margin-bottom:4px; }
+.rec-val { font-family:'Orbitron',monospace; font-size:13px; font-weight:700; }
+
+/* ── LOG ── */
+.log-wrap { margin:0 10px 10px; flex:1; min-height:80px; }
+.log-title {
+  font-family:'Share Tech Mono',monospace; font-size:9px; color:var(--dim);
+  letter-spacing:2px; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;
+}
+.log-box {
+  background:var(--card); border:1px solid var(--border); border-radius:4px;
+  padding:8px; height:100px; overflow-y:auto; font-family:'Share Tech Mono',monospace; font-size:10px;
+  scrollbar-width:thin; scrollbar-color:var(--cyan-d) transparent;
+}
+.log-box::-webkit-scrollbar{width:3px}
+.log-box::-webkit-scrollbar-thumb{background:var(--cyan-d)}
+.log-entry { padding:2px 0; border-bottom:1px solid rgba(255,255,255,0.03); display:flex; gap:8px; }
+.log-time { color:var(--dim); flex-shrink:0; }
+.log-msg { }
+
+/* ── STATUS BAR ── */
+.statusbar {
+  display:flex; align-items:center; gap:16px; padding:5px 14px;
+  background:#020c18; border-top:1px solid var(--border); flex-wrap:wrap; flex-shrink:0;
+}
+.sb-item { font-family:'Share Tech Mono',monospace; font-size:9px; color:var(--dim); letter-spacing:1px; }
+.sb-item span { color:var(--cyan); }
+
+/* ── CLEAR BTN ── */
+.clear-btn {
+  background:transparent; border:1px solid var(--border); color:var(--dim); padding:2px 8px;
+  font-family:'Share Tech Mono',monospace; font-size:8px; cursor:pointer; border-radius:2px;
+  letter-spacing:1px; transition:all 0.15s;
+}
+.clear-btn:hover { border-color:var(--cyan-d); color:var(--text); }
+
+/* ── MOBILE ── */
+@media(max-width:650px){
+  .layout{flex-direction:column;}
+  .sidebar{width:100%;max-width:100%;height:auto;border-right:none;border-bottom:1px solid var(--border);}
+  .patterns-wrap{grid-template-columns:1fr 1fr;}
+  .rec-box{grid-template-columns:1fr 1fr;}
+  .signal-hero-inner{grid-template-columns:1fr; }
+  .sh-center{border:none;}
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="hdr">
+  <div class="logo">
+    <div class="logo-hex">JMD</div>
+    <div>
+      <div class="logo-title">JMD DIGIT ANALYSER</div>
+      <div class="logo-sub">DERIV SYNTHETIC INDICES — SIGNAL ENGINE v2.0</div>
+    </div>
+  </div>
+  <div class="hdr-right">
+    <div class="live-dot" id="liveDot"></div>
+    <div class="conn-badge" id="connBadge">DISCONNECTED</div>
+  </div>
+</div>
+
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+
+    <!-- TOKEN AUTH -->
+    <div class="panel">
+      <div class="ph"><div class="pdot" style="background:var(--green)"></div><div class="ptitle">DERIV LOGIN</div></div>
+      <div class="pb">
+        <button class="conn-btn" id="oauthBtn" onclick="loginWithDeriv()" style="background:linear-gradient(90deg,#001a3a,#0066cc);color:#fff">
+          🔑 LOGIN WITH DERIV
+        </button>
+        <div id="loginStatus" style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--dim);margin-top:6px;line-height:1.6">
+          Click Login with Deriv — log in on the Deriv page then you'll be brought back here automatically.
+        </div>
+      </div>
+    </div>
+
+    <!-- INDEX -->
+    <div class="panel">
+      <div class="ph"><div class="pdot"></div><div class="ptitle">INDEX</div></div>
+      <div class="pb">
+        <label>SELECT SYNTHETIC INDEX</label>
+        <div class="btn-grid cols2" id="indexBtns">
+          <div style="color:var(--dim);font-family:'Share Tech Mono',monospace;font-size:9px;padding:6px;grid-column:1/-1">Connecting — loading available indices...</div>
+        </div>
+        <button class="conn-btn" id="connBtn" onclick="toggleConnect()">▶ START ANALYSIS</button>
+      </div>
+    </div>
+
+    <!-- SIGNAL SETTINGS -->
+    <div class="panel">
+      <div class="ph"><div class="pdot" style="background:var(--yellow)"></div><div class="ptitle">SIGNAL SETTINGS</div></div>
+      <div class="pb">
+        <label>CONTRACT TYPE TO ANALYSE</label>
+        <div class="btn-grid cols3" id="contractBtns">
+          <button class="sel-btn active" onclick="selContract(this,'EVEN')">EVEN</button>
+          <button class="sel-btn" onclick="selContract(this,'ODD')">ODD</button>
+          <button class="sel-btn" onclick="selContract(this,'MATCH')">MATCH</button>
+          <button class="sel-btn" onclick="selContract(this,'OVER')">OVER</button>
+          <button class="sel-btn" onclick="selContract(this,'UNDER')">UNDER</button>
+          <button class="sel-btn" onclick="selContract(this,'DIFF')">DIFF</button>
+        </div>
+
+        <div id="barrierWrap" style="display:none">
+          <label>BARRIER DIGIT</label>
+          <div class="btn-grid cols5" id="barrierBtns">
+            <button class="sel-btn" onclick="selBarrier(this,0)">0</button>
+            <button class="sel-btn" onclick="selBarrier(this,1)">1</button>
+            <button class="sel-btn" onclick="selBarrier(this,2)">2</button>
+            <button class="sel-btn" onclick="selBarrier(this,3)">3</button>
+            <button class="sel-btn" onclick="selBarrier(this,4)">4</button>
+            <button class="sel-btn active" onclick="selBarrier(this,5)">5</button>
+            <button class="sel-btn" onclick="selBarrier(this,6)">6</button>
+            <button class="sel-btn" onclick="selBarrier(this,7)">7</button>
+            <button class="sel-btn" onclick="selBarrier(this,8)">8</button>
+            <button class="sel-btn" onclick="selBarrier(this,9)">9</button>
+          </div>
+        </div>
+
+        <label>MIN CONFIDENCE THRESHOLD</label>
+        <div class="btn-grid cols4" id="confBtns">
+          <button class="sel-btn" onclick="selConf(this,55)">55%</button>
+          <button class="sel-btn active" onclick="selConf(this,65)">65%</button>
+          <button class="sel-btn" onclick="selConf(this,75)">75%</button>
+          <button class="sel-btn" onclick="selConf(this,85)">85%</button>
+        </div>
+
+        <label>SAMPLE SIZE (ticks before signal)</label>
+        <div class="btn-grid cols4" id="sampleBtns">
+          <button class="sel-btn" onclick="selSample(this,30)">30</button>
+          <button class="sel-btn" onclick="selSample(this,50)">50</button>
+          <button class="sel-btn active" onclick="selSample(this,100)">100</button>
+          <button class="sel-btn" onclick="selSample(this,200)">200</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- STREAK ALERT -->
+    <div class="panel">
+      <div class="ph"><div class="pdot" style="background:var(--orange)"></div><div class="ptitle">STREAK ALERTS</div></div>
+      <div class="pb">
+        <label>ALERT AFTER N SAME LAST DIGITS</label>
+        <div class="btn-grid cols4" id="streakBtns">
+          <button class="sel-btn" onclick="selStreak(this,3)">3</button>
+          <button class="sel-btn active" onclick="selStreak(this,4)">4</button>
+          <button class="sel-btn" onclick="selStreak(this,5)">5</button>
+          <button class="sel-btn" onclick="selStreak(this,6)">6</button>
+        </div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--dim);line-height:1.5;margin-top:4px;">
+          Alert fires when Even/Odd pattern repeats N times in a row — signals likely reversal
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end sidebar -->
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- SIGNAL HERO -->
+    <div class="signal-hero">
+      <div class="signal-hero-inner">
+        <div class="sh-left">
+          <div class="sh-label">CURRENT DIGIT</div>
+          <div class="sh-val" id="curDigit">—</div>
+          <div class="sh-sub" id="curPrice">AWAITING FEED...</div>
+        </div>
+        <div class="sh-center">
+          <div class="sh-label" style="margin-bottom:8px">SIGNAL</div>
+          <div class="signal-pill wait" id="signalPill">⏳ WAITING FOR DATA</div>
+          <div style="margin-top:8px;font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--dim)" id="signalSub">— collect more ticks —</div>
+        </div>
+        <div class="sh-right">
+          <div class="sh-label">CONFIDENCE</div>
+          <div class="sh-val" id="confPct" style="color:var(--yellow)">0%</div>
+          <div class="sh-sub" id="sampleCount">0 / 100 samples</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONF BAR -->
+    <div class="conf-wrap">
+      <div class="conf-bar-bg">
+        <div class="conf-bar-fill" id="confBarFill"></div>
+      </div>
+      <div class="conf-labels">
+        <span>0%</span>
+        <span id="confThreshLabel">THRESHOLD: 65%</span>
+        <span>100%</span>
+      </div>
+    </div>
+
+    <!-- HEATMAP -->
+    <div class="heatmap-wrap">
+      <div class="heatmap-title">
+        <span>◈ DIGIT FREQUENCY HEATMAP</span>
+        <span id="hmSamples" style="font-size:8px">SAMPLES: 0</span>
+      </div>
+      <div class="heatmap-grid" id="heatmap"></div>
+    </div>
+
+    <!-- TICK STRIP -->
+    <div class="ticks-wrap">
+      <div class="ticks-title">
+        <span>◈ LAST 40 DIGITS</span>
+        <span id="tickCount" style="font-size:8px">TICKS: 0</span>
+      </div>
+      <div class="ticks-strip" id="tickStrip"></div>
+    </div>
+
+    <!-- PATTERN CARDS -->
+    <div class="patterns-wrap">
+      <div class="pat-card">
+        <div class="pat-label">EVEN / ODD RATIO</div>
+        <div class="pat-val" id="eoRatio" style="color:var(--cyan)">—</div>
+        <div class="pat-sub" id="eoBar" style="color:var(--dim)">no data</div>
+      </div>
+      <div class="pat-card">
+        <div class="pat-label">CURRENT STREAK</div>
+        <div class="pat-val" id="streakVal" style="color:var(--yellow)">—</div>
+        <div class="pat-sub" id="streakType" style="color:var(--dim)">no data</div>
+      </div>
+      <div class="pat-card">
+        <div class="pat-label">HOTTEST DIGIT</div>
+        <div class="pat-val" id="hottestDigit" style="color:var(--orange)">—</div>
+        <div class="pat-sub" id="hottestPct" style="color:var(--dim)">no data</div>
+      </div>
+    </div>
+
+    <!-- RECOMMENDATION BOX -->
+    <div class="rec-wrap">
+      <div class="heatmap-title" style="margin-bottom:6px">
+        <span>◈ TRADE RECOMMENDATION</span>
+        <span style="font-size:8px;color:var(--dim)">execute manually on Deriv DBot</span>
+      </div>
+      <div class="rec-box" id="recBox">
+        <div class="rec-item">
+          <div class="rec-lbl">CONTRACT</div>
+          <div class="rec-val" id="recContract" style="color:var(--cyan)">—</div>
+        </div>
+        <div class="rec-item">
+          <div class="rec-lbl">BARRIER</div>
+          <div class="rec-val" id="recBarrier" style="color:var(--purple)">—</div>
+        </div>
+        <div class="rec-item">
+          <div class="rec-lbl">STRENGTH</div>
+          <div class="rec-val" id="recStrength" style="color:var(--yellow)">—</div>
+        </div>
+        <div class="rec-item">
+          <div class="rec-lbl">EDGE</div>
+          <div class="rec-val" id="recEdge" style="color:var(--green)">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SIGNAL LOG -->
+    <div class="log-wrap">
+      <div class="log-title">
+        <span>◈ SIGNAL LOG</span>
+        <button class="clear-btn" onclick="clearLog()">CLEAR</button>
+      </div>
+      <div class="log-box" id="logBox">
+        <div class="log-entry"><span class="log-time">--:--:--</span><span class="log-msg" style="color:var(--dim)">Start analysis to see signals</span></div>
+      </div>
+    </div>
+
+    <!-- STATUS BAR -->
+    <div class="statusbar">
+      <div class="sb-item">INDEX: <span id="sbIndex">—</span></div>
+      <div class="sb-item">CONTRACT: <span id="sbContract">EVEN</span></div>
+      <div class="sb-item">TICKS: <span id="sbTicks">0</span></div>
+      <div class="sb-item">THRESHOLD: <span id="sbThresh">65%</span></div>
+      <div class="sb-item">SIGNALS: <span id="sbSignals">0</span></div>
+      <div class="sb-item">STATUS: <span id="sbStatus">IDLE</span></div>
+    </div>
+
+  </div><!-- end main -->
+</div><!-- end layout -->
+
+<script>
+// ═══════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════
+const S = {
+  ws: null,
+  connected: false,
+  index: 'R_10',
+  contract: 'EVEN',
+  barrier: 5,
+  minConf: 65,
+  sampleSize: 100,
+  streakAlert: 4,
+
+  digits: [],        // all digit history
+  prices: [],        // last 40 prices
+  tickCount: 0,
+  signalCount: 0,
+
+  // running streak tracker
+  currentStreak: 0,  // positive=even, negative=odd
+  streakAlertFired: false,
+  oauthToken: null,
+
+  // Try multiple endpoints + app_ids
+  ENDPOINTS: [
+    'wss://ws.derivws.com/websockets/v3?app_id=1089',
+    'wss://ws.binaryws.com/websockets/v3?app_id=1089',
+    'wss://ws.derivws.com/websockets/v3?app_id=1',
+    'wss://ws.binaryws.com/websockets/v3?app_id=1',
+  ],
+
+  // Synthetic symbols to try in order
+  SYMBOLS: ['R_10','R_25','R_50','R_75','R_100','1HZ10V','1HZ25V','1HZ50V','1HZ75V','1HZ100V'],
+  symbolIdx: 0,
+};
+
+// ═══════════════════════════════════════════════
+// INIT HEATMAP
+// ═══════════════════════════════════════════════
+function initHeatmap() {
+  const hm = document.getElementById('heatmap');
+  hm.innerHTML = '';
+  for (let i = 0; i < 10; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'hm-cell';
+    cell.id = 'hm' + i;
+    cell.style.background = 'rgba(255,255,255,0.02)';
+    cell.innerHTML = `
+      <div class="hm-digit">${i}</div>
+      <div class="hm-pct" id="hmp${i}">0.0%</div>
+      <div class="hm-streak" id="hms${i}"></div>
+    `;
+    hm.appendChild(cell);
+  }
+}
+
+// ═══════════════════════════════════════════════
+// WEBSOCKET — PUBLIC TICK FEED (no auth needed)
+// ═══════════════════════════════════════════════
+function toggleConnect() {
+  if (S.connected) disconnect();
+  else connect();
+}
+
+async function generatePKCE() {
+  const array = new Uint8Array(64);
+  crypto.getRandomValues(array);
+  const verifier = btoa(String.fromCharCode(...array))
+    .replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+  const encoder = new TextEncoder();
+  const digest = await crypto.subtle.digest('SHA-256', encoder.encode(verifier));
+  const challenge = btoa(String.fromCharCode(...new Uint8Array(digest)))
+    .replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+  return { verifier, challenge };
+}
+
+async function loginWithDeriv() {
+  const { verifier, challenge } = await generatePKCE();
+  const state = Math.random().toString(36).substring(2, 18);
+  sessionStorage.setItem('pkce_v', verifier);
+  sessionStorage.setItem('oauth_s', state);
+  const params = new URLSearchParams({
+    response_type: 'code',
+    client_id: '33ZtMPCt7tnMFhH4yMnVw',
+    redirect_uri: 'https://mentorculture1-oss.github.io/jmd-analyser/',
+    scope: 'trade',
+    state: state,
+    code_challenge: challenge,
+    code_challenge_method: 'S256'
+  });
+  log('Redirecting to Deriv login...', 'var(--cyan)');
+  window.location.href = 'https://auth.deriv.com/oauth2/auth?' + params.toString();
+}
+
+async function checkOAuthReturn() {
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get('code');
+  // Also handle legacy implicit flow (tokens directly in URL)
+  const token1 = params.get('token1') || params.get('token');
+  const acct1 = params.get('acct1') || params.get('acct');
+
+  if (token1) {
+    // Legacy implicit flow — token directly in URL
+    S.oauthToken = token1;
+    document.getElementById('loginStatus').textContent = 'Logged in as ' + (acct1 || 'unknown') + ' — click START ANALYSIS';
+    document.getElementById('loginStatus').style.color = 'var(--green)';
+    log('✅ Logged in as ' + (acct1 || 'unknown'), 'var(--green)');
+    window.history.replaceState({}, '', window.location.pathname);
+    return;
+  }
+
+  if (code) {
+    // New PKCE flow — exchange code for token
+    const verifier = sessionStorage.getItem('pkce_v');
+    log('Exchanging auth code for token...', 'var(--cyan)');
+    try {
+      const res = await fetch('https://auth.deriv.com/oauth2/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          grant_type: 'authorization_code',
+          code: code,
+          redirect_uri: 'https://mentorculture1-oss.github.io/jmd-analyser/',
+          client_id: '33ZtMPCt7tnMFhH4yMnVw',
+          code_verifier: verifier || ''
+        })
+      });
+      const data = await res.json();
+      if (data.access_token) {
+        S.oauthToken = data.access_token;
+        document.getElementById('loginStatus').textContent = 'Logged in — click START ANALYSIS';
+        document.getElementById('loginStatus').style.color = 'var(--green)';
+        log('✅ Login successful — click START ANALYSIS', 'var(--green)');
+      } else {
+        log('⚠ Token exchange failed: ' + JSON.stringify(data), 'var(--red)');
+      }
+    } catch(e) {
+      log('❌ Token exchange error: ' + e.message, 'var(--red)');
+    }
+    window.history.replaceState({}, '', window.location.pathname);
+  }
+}
+
+function connect() {
+  S.digits = []; S.prices = []; S.tickCount = 0; S.currentStreak = 0;
+  S.symbolIdx = 0; S.index = S.SYMBOLS[0];
+  initHeatmap();
+  document.getElementById('tickStrip').innerHTML = '';
+
+  const token = S.oauthToken;
+  if (!token) {
+    log('❌ Login with Deriv first using the button above', 'var(--red)');
+    return;
+  }
+
+  log('Connecting with Deriv OAuth token...', 'var(--cyan)');
+  connectWS(token);
+}
+
+function connectWS(token) {
+  const ENDPOINTS = [
+    'wss://ws.derivws.com/websockets/v3?app_id=1089',
+    'wss://ws.binaryws.com/websockets/v3?app_id=1089',
+  ];
+  tryWSEndpoint(token, ENDPOINTS, 0);
+}
+
+function tryWSEndpoint(token, endpoints, idx) {
+  if (idx >= endpoints.length) {
+    log('❌ Could not connect to any endpoint', 'var(--red)');
+    return;
+  }
+  const ws = new WebSocket(endpoints[idx]);
+  const timeout = setTimeout(() => {
+    try { ws.close(); } catch(e) {}
+    tryWSEndpoint(token, endpoints, idx + 1);
+  }, 6000);
+
+  ws.onopen = () => {
+    clearTimeout(timeout);
+    log('Socket open — authorizing...', 'var(--cyan)');
+    ws.send(JSON.stringify({ authorize: token }));
+  };
+
+  ws.onmessage = (ev) => {
+    clearTimeout(timeout);
+    let d; try { d = JSON.parse(ev.data); } catch(e){ return; }
+
+    if (d.msg_type === 'authorize') {
+      if (d.error) {
+        log('❌ Auth error: ' + d.error.message, 'var(--red)');
+        tryWSEndpoint(token, endpoints, idx + 1);
+        return;
+      }
+      S.ws = ws;
+      setConnected(true);
+      log('✅ Authorized as ' + d.authorize.loginid + ' — subscribing ticks...', 'var(--green)');
+      document.getElementById('sbIndex').textContent = S.index;
+      ws.send(JSON.stringify({ ticks: S.index, subscribe: 1 }));
+      buildIndexButtons();
+      S._ping = setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ ping: 1 }));
+      }, 25000);
+      return;
+    }
+
+    if (d.error && d.error.code === 'InvalidSymbol') {
+      S.symbolIdx++;
+      if (S.symbolIdx < S.SYMBOLS.length) {
+        const next = S.SYMBOLS[S.symbolIdx];
+        S.index = next;
+        ws.send(JSON.stringify({ ticks: next, subscribe: 1 }));
+        log('Trying ' + next + '...', 'var(--yellow)');
+        document.getElementById('sbIndex').textContent = next;
+      } else {
+        log('❌ No synthetic indices available for this account', 'var(--red)');
+      }
+      return;
+    }
+
+    if (d.error) {
+      log('⚠ ' + d.error.code + ': ' + d.error.message, 'var(--red)');
+      return;
+    }
+
+    if (d.msg_type === 'tick' && d.tick) onTick(d.tick);
+  };
+
+  ws.onerror = () => { clearTimeout(timeout); };
+
+  ws.onclose = () => {
+    clearTimeout(timeout);
+    clearInterval(S._ping);
+    if (S.connected) {
+      S.connected = false;
+      setConnected(false);
+      log('Feed disconnected', 'var(--yellow)');
+    }
+  };
+}
+
+function tryEndpoint(idx) {
+  if (idx >= S.ENDPOINTS.length) {
+    log('❌ All endpoints failed. Check your internet connection.', 'var(--red)');
+    setConnected(false);
+    return;
+  }
+  const url = S.ENDPOINTS[idx];
+  log('Trying ' + url.split('//')[1].split('/')[0] + '...', 'var(--dim)');
+  const ws = new WebSocket(url);
+  let gotMessage = false;
+
+  const timeout = setTimeout(() => {
+    if (!gotMessage) {
+      try { ws.close(); } catch(e){}
+      tryEndpoint(idx + 1);
+    }
+  }, 5000);
+
+  ws.onopen = () => {
+    clearTimeout(timeout);
+    const token = document.getElementById('tokenInput').value.trim();
+    if (token) {
+      log('Connected — authorizing...', 'var(--cyan)');
+      ws.send(JSON.stringify({ authorize: token }));
+      // If no authorize response in 6s, try next endpoint
+      S._authTimeout = setTimeout(() => {
+        log('No auth response — trying next endpoint...', 'var(--yellow)');
+        try { ws.close(); } catch(e){}
+        tryEndpoint(idx + 1);
+      }, 6000);
+    } else {
+      log('Trying without token...', 'var(--yellow)');
+      ws.send(JSON.stringify({ ticks: S.index, subscribe: 1 }));
+    }
+    S._ping = setInterval(() => {
+      if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ ping: 1 }));
+    }, 25000);
+  };
+
+  ws.onmessage = (ev) => {
+    clearTimeout(timeout);
+    clearTimeout(S._authTimeout);
+    let d;
+    try { d = JSON.parse(ev.data); } catch(e){ return; }
+
+    // Log every response type for debugging
+    if (d.msg_type && d.msg_type !== 'tick') {
+      log('← ' + d.msg_type + (d.error ? ' ERROR: ' + d.error.message : ''), d.error ? 'var(--red)' : 'var(--dim)');
+    }
+
+    // Token auth success — now subscribe to ticks
+    if (d.msg_type === 'authorize') {
+      log('✅ Authorized as ' + d.authorize.loginid + ' — connecting feed...', 'var(--green)');
+      S.symbolIdx = 0;
+      S.index = S.SYMBOLS[0];
+      ws.send(JSON.stringify({ ticks: S.index, subscribe: 1 }));
+      return;
+    }
+
+    // Invalid token
+    if (d.error && (d.error.code === 'InvalidToken' || d.error.code === 'AuthorizationRequired')) {
+      log('❌ Invalid token — check you copied the full pat-... value correctly', 'var(--red)');
+      log('→ home.deriv.com → Profile → API Token → Create new with Trade ticked', 'var(--yellow)');
+      S.connected = false;
+      setConnected(false);
+      return;
+    }
+
+    // Invalid symbol — try next one
+    if (d.error && d.error.code === 'InvalidSymbol') {
+      S.symbolIdx++;
+      if (S.symbolIdx < S.SYMBOLS.length) {
+        const next = S.SYMBOLS[S.symbolIdx];
+        log('Symbol ' + S.index + ' unavailable → trying ' + next + '...', 'var(--yellow)');
+        S.index = next;
+        ws.send(JSON.stringify({ ticks: next, subscribe: 1 }));
+      } else {
+        log('❌ No synthetic indices available without a token on this connection.', 'var(--red)');
+        log('→ Paste your Deriv API token above and click START ANALYSIS again.', 'var(--yellow)');
+        // Stop reconnect loop — user needs to add token
+        S.connected = false;
+        setConnected(false);
+      }
+      return;
+    }
+
+    if (d.error) {
+      log('⚠ [' + d.error.code + ']: ' + d.error.message, 'var(--red)');
+      return;
+    }
+
+    if (d.msg_type === 'tick' && d.tick) {
+      if (!gotMessage) {
+        gotMessage = true;
+        S.ws = ws;
+        setConnected(true);
+        log('✅ Live feed connected — ' + S.index, 'var(--green)');
+        document.getElementById('sbIndex').textContent = S.index;
+        buildIndexButtons();
+      }
+      onTick(d.tick);
+    }
+  };
+
+  ws.onerror = () => {
+    clearTimeout(timeout);
+    clearTimeout(S._authTimeout);
+    if (!gotMessage) tryEndpoint(idx + 1);
+  };
+
+  ws.onclose = () => {
+    clearTimeout(timeout);
+    clearTimeout(S._authTimeout);
+    clearInterval(S._ping);
+    if (S.connected) {
+      S.connected = false;
+      setConnected(false);
+      log('Feed disconnected', 'var(--yellow)');
+    }
+  };
+}
+
+function disconnect() {
+  if (S.ws) { try { S.ws.close(); } catch(e){} }
+  clearInterval(S._ping);
+  setConnected(false);
+  log('Analysis stopped', 'var(--dim)');
+}
+
+function setConnected(v) {
+  S.connected = v;
+  const dot = document.getElementById('liveDot');
+  const badge = document.getElementById('connBadge');
+  const btn = document.getElementById('connBtn');
+  dot.className = 'live-dot' + (v ? ' on' : '');
+  badge.className = 'conn-badge' + (v ? ' on' : '');
+  badge.textContent = v ? 'LIVE' : 'DISCONNECTED';
+  btn.className = 'conn-btn' + (v ? ' active' : '');
+  btn.textContent = v ? '■ STOP ANALYSIS' : '▶ START ANALYSIS';
+  document.getElementById('sbStatus').textContent = v ? 'LIVE' : 'IDLE';
+}
+
+function resubscribe() {
+  if (!S.ws || S.ws.readyState !== WebSocket.OPEN) return;
+  S.ws.send(JSON.stringify({ forget_all: 'ticks' }));
+  setTimeout(() => {
+    S.digits = []; S.prices = []; S.tickCount = 0; S.currentStreak = 0;
+    initHeatmap();
+    document.getElementById('tickStrip').innerHTML = '';
+    S.ws.send(JSON.stringify({ ticks: S.index, subscribe: 1 }));
+    log('Switched to ' + S.index, 'var(--cyan)');
+    document.getElementById('sbIndex').textContent = S.index;
+  }, 400);
+}
+
+// ═══════════════════════════════════════════════
+// TICK PROCESSING
+// ═══════════════════════════════════════════════
+function onTick(tick) {
+  const price = parseFloat(tick.quote);
+  const priceStr = price.toFixed(tick.pip_size || 2);
+  const digit = parseInt(priceStr.slice(-1));
+
+  S.digits.push(digit);
+  S.prices.push(price);
+  if (S.digits.length > 2000) S.digits.shift();
+  if (S.prices.length > 40) S.prices.shift();
+  S.tickCount++;
+
+  // Update streak
+  const isEven = digit % 2 === 0;
+  if (isEven) {
+    S.currentStreak = S.currentStreak > 0 ? S.currentStreak + 1 : 1;
+  } else {
+    S.currentStreak = S.currentStreak < 0 ? S.currentStreak - 1 : -1;
+  }
+
+  updateUI(digit, priceStr);
+  document.getElementById('sbTicks').textContent = S.tickCount;
+}
+
+// ═══════════════════════════════════════════════
+// UI UPDATE
+// ═══════════════════════════════════════════════
+function updateUI(digit, priceStr) {
+  // Current digit
+  const even = digit % 2 === 0;
+  document.getElementById('curDigit').textContent = digit;
+  document.getElementById('curDigit').style.color = even ? 'var(--cyan)' : 'var(--purple)';
+  document.getElementById('curPrice').textContent = priceStr;
+
+  // Tick strip
+  updateTickStrip(digit, even);
+
+  // Heatmap
+  updateHeatmap();
+
+  // Patterns
+  updatePatterns();
+
+  // Confidence + signal
+  const conf = computeConfidence();
+  updateSignal(conf);
+
+  // Recommendation
+  updateRecommendation(conf);
+
+  // Sample count
+  const n = S.digits.length;
+  document.getElementById('sampleCount').textContent = n + ' / ' + S.sampleSize + ' samples';
+  document.getElementById('hmSamples').textContent = 'SAMPLES: ' + n;
+  document.getElementById('tickCount').textContent = 'TICKS: ' + S.tickCount;
+}
+
+function updateTickStrip(digit, isEven) {
+  const strip = document.getElementById('tickStrip');
+  const chip = document.createElement('div');
+  chip.className = 'tick-chip new';
+  chip.innerHTML = `<span style="color:${isEven ? 'var(--cyan)' : 'var(--purple)'}">${digit}</span><span class="tick-chip-label">${isEven ? 'E' : 'O'}</span>`;
+  strip.insertBefore(chip, strip.firstChild);
+  setTimeout(() => chip.classList.remove('new'), 500);
+  // Keep last 40
+  while (strip.children.length > 40) strip.removeChild(strip.lastChild);
+}
+
+function updateHeatmap() {
+  const n = S.digits.length;
+  if (!n) return;
+  const counts = Array(10).fill(0);
+  S.digits.forEach(d => counts[d]++);
+  const max = Math.max(...counts);
+  const freqs = counts.map(c => c / n);
+
+  for (let i = 0; i < 10; i++) {
+    const cell = document.getElementById('hm' + i);
+    const pct = freqs[i];
+    const pctDisplay = (pct * 100).toFixed(1) + '%';
+    // Color intensity based on frequency
+    const intensity = max > 0 ? counts[i] / max : 0;
+    const r = Math.round(intensity * 40);
+    const g = Math.round(intensity * 120);
+    const b = Math.round(intensity * 80 + 20);
+    const glow = intensity > 0.8 ? `0 0 8px rgba(0,255,136,0.4)` : 'none';
+    cell.style.background = `rgba(${r},${g},${b},${0.15 + intensity * 0.4})`;
+    cell.style.borderColor = intensity > 0.7 ? 'rgba(0,255,136,0.4)' : 'transparent';
+    cell.style.boxShadow = glow;
+    document.getElementById('hmp' + i).textContent = pctDisplay;
+
+    // Mark even/odd
+    const streak = document.getElementById('hms' + i);
+    streak.textContent = i % 2 === 0 ? 'EVEN' : 'ODD';
+    streak.style.color = i % 2 === 0 ? 'var(--cyan-d)' : 'var(--dim)';
+  }
+}
+
+function updatePatterns() {
+  const n = S.digits.length;
+  if (n < 10) return;
+
+  const counts = Array(10).fill(0);
+  S.digits.forEach(d => counts[d]++);
+
+  // Even/odd ratio
+  const evenCount = [0,2,4,6,8].reduce((s,i) => s + counts[i], 0);
+  const oddCount = n - evenCount;
+  const evenPct = ((evenCount / n) * 100).toFixed(1);
+  const oddPct = ((oddCount / n) * 100).toFixed(1);
+  document.getElementById('eoRatio').textContent = evenPct + '% / ' + oddPct + '%';
+  const eoBar = document.getElementById('eoBar');
+  const bias = parseFloat(evenPct) > 55 ? '▲ EVEN BIAS' : parseFloat(oddPct) > 55 ? '▲ ODD BIAS' : '≈ BALANCED';
+  eoBar.textContent = bias;
+  eoBar.style.color = parseFloat(evenPct) > 55 ? 'var(--cyan)' : parseFloat(oddPct) > 55 ? 'var(--purple)' : 'var(--dim)';
+
+  // Streak
+  const absStreak = Math.abs(S.currentStreak);
+  const streakType = S.currentStreak > 0 ? 'EVEN' : 'ODD';
+  document.getElementById('streakVal').textContent = absStreak + 'x ' + streakType;
+  const sv = document.getElementById('streakVal');
+  sv.style.color = absStreak >= S.streakAlert ? 'var(--red)' : 'var(--yellow)';
+  const st = document.getElementById('streakType');
+  if (absStreak >= S.streakAlert) {
+    st.textContent = '⚠ REVERSAL LIKELY';
+    st.style.color = 'var(--red)';
+    // Log streak alert (throttled)
+    if (!S.streakAlertFired) {
+      S.streakAlertFired = true;
+      log(`⚠ STREAK: ${absStreak}x ${streakType} — consider ${streakType === 'EVEN' ? 'ODD' : 'EVEN'} next`, 'var(--red)');
+    }
+  } else {
+    st.textContent = 'streak in progress';
+    st.style.color = 'var(--dim)';
+    S.streakAlertFired = false;
+  }
+
+  // Hottest digit
+  let hottest = 0;
+  for (let i = 1; i < 10; i++) if (counts[i] > counts[hottest]) hottest = i;
+  const hottestPct = ((counts[hottest] / n) * 100).toFixed(1);
+  document.getElementById('hottestDigit').textContent = hottest;
+  document.getElementById('hottestPct').textContent = hottestPct + '% (expected 10%)';
+}
+
+// ═══════════════════════════════════════════════
+// CONFIDENCE ENGINE
+// ═══════════════════════════════════════════════
+function computeConfidence() {
+  const n = S.digits.length;
+  const minSamples = S.sampleSize;
+  if (n < minSamples) return (n / minSamples) * 40; // ramp 0→40 during collection
+
+  const counts = Array(10).fill(0);
+  S.digits.forEach(d => counts[d]++);
+  const freqs = counts.map(c => c / n);
+
+  // Use last 200 ticks weighted more heavily for recent bias
+  const recent = S.digits.slice(-Math.min(200, n));
+  const rCounts = Array(10).fill(0);
+  recent.forEach(d => rCounts[d]++);
+  const rFreqs = rCounts.map(c => c / recent.length);
+
+  let conf = 50;
+
+  switch (S.contract) {
+    case 'EVEN': {
+      const evenF = [0,2,4,6,8].reduce((s,i) => s + freqs[i], 0);
+      const evenR = [0,2,4,6,8].reduce((s,i) => s + rFreqs[i], 0);
+      // Blend overall and recent — recent weighted 60%
+      const blended = evenF * 0.4 + evenR * 0.6;
+      conf = 50 + (blended - 0.5) * 200;
+      // Streak bonus: if odd streak is high, even is more likely
+      if (S.currentStreak < -S.streakAlert) conf += 5;
+      break;
+    }
+    case 'ODD': {
+      const oddF = [1,3,5,7,9].reduce((s,i) => s + freqs[i], 0);
+      const oddR = [1,3,5,7,9].reduce((s,i) => s + rFreqs[i], 0);
+      const blended = oddF * 0.4 + oddR * 0.6;
+      conf = 50 + (blended - 0.5) * 200;
+      if (S.currentStreak > S.streakAlert) conf += 5;
+      break;
+    }
+    case 'MATCH': {
+      const f = freqs[S.barrier];
+      const r = rFreqs[S.barrier];
+      const blended = f * 0.4 + r * 0.6;
+      // Expected random = 0.10. Scale deviation
+      conf = 50 + (blended - 0.10) * 556;
+      break;
+    }
+    case 'OVER': {
+      // OVER barrier: last digit > barrier
+      const overF = counts.slice(S.barrier + 1).reduce((s,c) => s + c, 0) / n;
+      const overR = rCounts.slice(S.barrier + 1).reduce((s,c) => s + c, 0) / recent.length;
+      const expected = (9 - S.barrier) / 10;
+      const blended = overF * 0.4 + overR * 0.6;
+      conf = 50 + (blended - expected) * 200;
+      break;
+    }
+    case 'UNDER': {
+      const underF = counts.slice(0, S.barrier).reduce((s,c) => s + c, 0) / n;
+      const underR = rCounts.slice(0, S.barrier).reduce((s,c) => s + c, 0) / recent.length;
+      const expected = S.barrier / 10;
+      const blended = underF * 0.4 + underR * 0.6;
+      conf = 50 + (blended - expected) * 200;
+      break;
+    }
+    case 'DIFF': {
+      // DIFF: last digit !== barrier
+      const matchF = freqs[S.barrier];
+      const matchR = rFreqs[S.barrier];
+      const blended = matchF * 0.4 + matchR * 0.6;
+      // DIFF is good when barrier digit is COLD (low freq)
+      conf = 50 + (0.10 - blended) * 556;
+      break;
+    }
+    default: conf = 50;
+  }
+
+  return Math.max(5, Math.min(99, conf));
+}
+
+function updateSignal(conf) {
+  const pct = Math.round(conf);
+  document.getElementById('confPct').textContent = pct + '%';
+
+  const fill = document.getElementById('confBarFill');
+  fill.style.width = conf + '%';
+  fill.style.background = conf >= S.minConf ? 'var(--green)' : conf >= S.minConf - 10 ? 'var(--yellow)' : 'var(--cyan-d)';
+
+  const pill = document.getElementById('signalPill');
+  const sub = document.getElementById('signalSub');
+  const n = S.digits.length;
+
+  if (n < S.sampleSize) {
+    pill.className = 'signal-pill wait';
+    pill.textContent = `⏳ COLLECTING ${n}/${S.sampleSize} TICKS`;
+    sub.textContent = '— building sample —';
+    return;
+  }
+
+  if (conf >= S.minConf + 10) {
+    pill.className = 'signal-pill ready';
+    pill.textContent = '✓ STRONG SIGNAL — TRADE NOW';
+    sub.textContent = S.contract + (needsBarrier() ? ' barrier ' + S.barrier : '') + ' — ' + pct + '% confidence';
+    // Log signal
+    logSignal(pct, 'STRONG');
+  } else if (conf >= S.minConf) {
+    pill.className = 'signal-pill ready';
+    pill.textContent = '✓ SIGNAL READY';
+    sub.textContent = S.contract + (needsBarrier() ? ' barrier ' + S.barrier : '') + ' — ' + pct + '% confidence';
+    logSignal(pct, 'OK');
+  } else if (conf >= S.minConf - 10) {
+    pill.className = 'signal-pill caution';
+    pill.textContent = '⚡ BORDERLINE — WAIT';
+    sub.textContent = pct + '% / ' + S.minConf + '% required';
+  } else {
+    pill.className = 'signal-pill avoid';
+    pill.textContent = '✗ NO SIGNAL — AVOID';
+    sub.textContent = pct + '% / ' + S.minConf + '% required';
+  }
+}
+
+let lastLoggedConf = 0;
+let lastLogTime = 0;
+
+function logSignal(conf, strength) {
+  const now = Date.now();
+  // Don't spam — log only if conf changed meaningfully or 30s elapsed
+  if (Math.abs(conf - lastLoggedConf) < 3 && now - lastLogTime < 30000) return;
+  lastLoggedConf = conf;
+  lastLogTime = now;
+  const label = strength === 'STRONG' ? '🔥 STRONG' : '✓ SIGNAL';
+  log(`${label}: ${S.contract}${needsBarrier() ? ' #' + S.barrier : ''} | ${conf}% conf | ${S.index}`, conf >= S.minConf + 10 ? 'var(--green)' : 'var(--cyan)');
+  S.signalCount++;
+  document.getElementById('sbSignals').textContent = S.signalCount;
+}
+
+function updateRecommendation(conf) {
+  const n = S.digits.length;
+  if (n < S.sampleSize) return;
+
+  const counts = Array(10).fill(0);
+  S.digits.forEach(d => counts[d]++);
+
+  // Best contract suggestion
+  let bestContract = S.contract;
+  let barrier = needsBarrier() ? S.barrier : '—';
+
+  // Auto-suggest best barrier for MATCH/OVER/UNDER/DIFF
+  if (S.contract === 'MATCH') {
+    let hottest = 0;
+    for (let i = 1; i < 10; i++) if (counts[i] > counts[hottest]) hottest = i;
+    barrier = hottest;
+  } else if (S.contract === 'DIFF') {
+    let coldest = 0;
+    for (let i = 1; i < 10; i++) if (counts[i] < counts[coldest]) coldest = i;
+    barrier = coldest;
+  }
+
+  const strength = conf >= S.minConf + 10 ? 'STRONG' : conf >= S.minConf ? 'GOOD' : conf >= S.minConf - 10 ? 'WEAK' : 'NONE';
+  const strengthColor = strength === 'STRONG' ? 'var(--green)' : strength === 'GOOD' ? 'var(--cyan)' : strength === 'WEAK' ? 'var(--yellow)' : 'var(--red)';
+
+  const edgePct = Math.max(0, conf - 50).toFixed(1);
+  const edgeColor = edgePct > 15 ? 'var(--green)' : edgePct > 5 ? 'var(--yellow)' : 'var(--red)';
+
+  document.getElementById('recContract').textContent = bestContract;
+  document.getElementById('recBarrier').textContent = barrier;
+  document.getElementById('recStrength').textContent = strength;
+  document.getElementById('recStrength').style.color = strengthColor;
+  document.getElementById('recEdge').textContent = '+' + edgePct + '%';
+  document.getElementById('recEdge').style.color = edgeColor;
+}
+
+function needsBarrier() {
+  return ['MATCH','OVER','UNDER','DIFF'].includes(S.contract);
+}
+
+// ═══════════════════════════════════════════════
+// SELECTOR HANDLERS
+// ═══════════════════════════════════════════════
+function buildIndexButtons() {
+  // Build all known buttons, highlight current working one
+  const grid = document.getElementById('indexBtns');
+  grid.innerHTML = '';
+  const labels = {
+    'R_10':'Vol 10','R_25':'Vol 25','R_50':'Vol 50','R_75':'Vol 75','R_100':'Vol 100',
+    '1HZ10V':'Vol 10(1s)','1HZ25V':'Vol 25(1s)','1HZ50V':'Vol 50(1s)',
+    '1HZ75V':'Vol 75(1s)','1HZ100V':'Vol 100(1s)'
+  };
+  S.SYMBOLS.forEach(sym => {
+    const btn = document.createElement('button');
+    btn.className = 'sel-btn' + (sym === S.index ? ' active' : '');
+    btn.textContent = labels[sym] || sym;
+    btn.onclick = () => selIndex(btn, sym);
+    grid.appendChild(btn);
+  });
+}
+
+function selIndex(btn, val) {
+  document.querySelectorAll('#indexBtns .sel-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  S.index = val;
+  if (S.connected) resubscribe();
+}
+
+function selContract(btn, val) {
+  document.querySelectorAll('#contractBtns .sel-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  S.contract = val;
+  document.getElementById('sbContract').textContent = val;
+  const needB = needsBarrier();
+  document.getElementById('barrierWrap').style.display = needB ? 'block' : 'none';
+  // reset signal log cache
+  lastLoggedConf = 0; lastLogTime = 0;
+}
+
+function selBarrier(btn, val) {
+  document.querySelectorAll('#barrierBtns .sel-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  S.barrier = val;
+  lastLoggedConf = 0; lastLogTime = 0;
+}
+
+function selConf(btn, val) {
+  document.querySelectorAll('#confBtns .sel-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  S.minConf = val;
+  document.getElementById('confThreshLabel').textContent = 'THRESHOLD: ' + val + '%';
+  document.getElementById('sbThresh').textContent = val + '%';
+  lastLoggedConf = 0; lastLogTime = 0;
+}
+
+function selSample(btn, val) {
+  document.querySelectorAll('#sampleBtns .sel-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  S.sampleSize = val;
+  lastLoggedConf = 0; lastLogTime = 0;
+}
+
+function selStreak(btn, val) {
+  document.querySelectorAll('#streakBtns .sel-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  S.streakAlert = val;
+}
+
+// ═══════════════════════════════════════════════
+// LOG
+// ═══════════════════════════════════════════════
+function log(msg, color) {
+  const box = document.getElementById('logBox');
+  const entry = document.createElement('div');
+  entry.className = 'log-entry';
+  entry.innerHTML = `<span class="log-time">${ts()}</span><span class="log-msg" style="color:${color||'var(--text)'}">${msg}</span>`;
+  box.insertBefore(entry, box.firstChild);
+  while (box.children.length > 50) box.removeChild(box.lastChild);
+}
+
+function clearLog() {
+  document.getElementById('logBox').innerHTML = '';
+  S.signalCount = 0;
+  document.getElementById('sbSignals').textContent = '0';
+}
+
+function ts() {
+  return new Date().toTimeString().slice(0,8);
+}
+
+// ═══════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════
+initHeatmap();
+log('Enter your App ID then click 🔑 LOGIN WITH DERIV to get started', 'var(--cyan)');
+// Check if returning from Deriv OAuth
+checkOAuthReturn().catch(e => log('OAuth check error: ' + e.message, 'var(--red)'));
+</script>
+</body>
+</html>

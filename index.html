@@ -583,16 +583,31 @@ function toggleConnect() {
   else connect();
 }
 
+async function generatePKCE() {
+  const array = new Uint8Array(64);
+  crypto.getRandomValues(array);
+  const verifier = btoa(String.fromCharCode(...array))
+    .replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+  const encoder = new TextEncoder();
+  const digest = await crypto.subtle.digest('SHA-256', encoder.encode(verifier));
+  const challenge = btoa(String.fromCharCode(...new Uint8Array(digest)))
+    .replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+  return { verifier, challenge };
+}
+
 async function loginWithDeriv() {
+  const { verifier, challenge } = await generatePKCE();
   const state = Math.random().toString(36).substring(2, 18);
+  sessionStorage.setItem('pkce_v', verifier);
   sessionStorage.setItem('oauth_s', state);
-  // Use implicit flow (response_type=token) — returns WebSocket-compatible token directly
   const params = new URLSearchParams({
-    response_type: 'token',
+    response_type: 'code',
     client_id: '33ZtMPCt7tnMFhH4yMnVw',
     redirect_uri: 'https://mentorculture1-oss.github.io/jmd-analyser/',
     scope: 'trade',
-    state: state
+    state: state,
+    code_challenge: challenge,
+    code_challenge_method: 'S256'
   });
   log('Redirecting to Deriv login...', 'var(--cyan)');
   window.location.href = 'https://auth.deriv.com/oauth2/auth?' + params.toString();
@@ -671,37 +686,118 @@ function connect() {
     return;
   }
 
-  log('Fetching account session token...', 'var(--cyan)');
+  log('Step 1: Getting account info...', 'var(--cyan)');
 
-  // Use the OAuth access token to get account info and session token
-  fetch('https://api.deriv.com/v1/accounts', {
-    headers: { 'Authorization': 'Bearer ' + token }
-  })
-  .then(r => r.json())
-  .then(data => {
-    // Try to get session token from accounts
-    const accounts = data.accounts || data.data || [];
-    const acc = Array.isArray(accounts) ? accounts[0] : null;
-    const sessionToken = acc?.session_token || acc?.token;
+  // Try multiple REST base URLs
+  const REST_BASES = [
+    'https://api.deriv.com/v1',
+    'https://api.derivws.com/trading/v1/options',
+  ];
 
-    if (sessionToken) {
-      log('Got session token — connecting WebSocket...', 'var(--cyan)');
-      connectWithToken(sessionToken);
-    } else {
-      // Fallback: try using the OAuth token directly with WebSocket
-      log('Trying OAuth token directly with WebSocket...', 'var(--cyan)');
-      connectWithToken(token);
-    }
-  })
-  .catch(() => {
-    // REST failed — try OAuth token directly with WebSocket as fallback
-    log('Trying OAuth token directly with WebSocket...', 'var(--cyan)');
-    connectWithToken(token);
-  });
+  tryRESTConnect(token, REST_BASES, 0);
 }
 
-function connectWithToken(token) {
-  connectWS(token);
+async function tryRESTConnect(token, bases, idx) {
+  if (idx >= bases.length) {
+    log('REST API failed — trying direct WebSocket auth as last resort...', 'var(--yellow)');
+    connectWS(token);
+    return;
+  }
+
+  const base = bases[idx];
+  log('Trying ' + base + '...', 'var(--dim)');
+
+  try {
+    const r = await fetch(base + '/accounts', {
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'Content-Type': 'application/json'
+      }
+    });
+    const text = await r.text();
+    log('Accounts response: ' + text.substring(0, 100), 'var(--dim)');
+
+    let data;
+    try { data = JSON.parse(text); } catch(e) {
+      log('Not JSON — trying next endpoint...', 'var(--yellow)');
+      tryRESTConnect(token, bases, idx + 1);
+      return;
+    }
+
+    const accounts = data.data || data.accounts || (Array.isArray(data) ? data : []);
+    if (!accounts.length) {
+      log('No accounts returned — trying next endpoint...', 'var(--yellow)');
+      tryRESTConnect(token, bases, idx + 1);
+      return;
+    }
+
+    const acc = accounts[0];
+    const accountId = acc.account_id || acc.id || acc.loginid;
+    log('Step 2: Account ' + accountId + ' — getting OTP...', 'var(--cyan)');
+
+    const r2 = await fetch(base + '/accounts/' + accountId + '/otp', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'Content-Type': 'application/json'
+      }
+    });
+    const otpData = await r2.json();
+    const wsUrl = otpData.data?.url || otpData.url;
+
+    if (!wsUrl) {
+      log('No WS URL from OTP — trying next endpoint...', 'var(--yellow)');
+      tryRESTConnect(token, bases, idx + 1);
+      return;
+    }
+
+    log('Step 3: Connecting via OTP WebSocket...', 'var(--cyan)');
+    connectOTPWS(wsUrl);
+
+  } catch(e) {
+    log('Error: ' + e.message + ' — trying next endpoint...', 'var(--yellow)');
+    tryRESTConnect(token, bases, idx + 1);
+  }
+}
+
+function connectOTPWS(url) {
+  const ws = new WebSocket(url);
+  ws.onopen = () => {
+    S.ws = ws;
+    setConnected(true);
+    log('✅ Connected via OTP — subscribing ticks...', 'var(--green)');
+    ws.send(JSON.stringify({ ticks: S.index, subscribe: 1 }));
+    document.getElementById('sbIndex').textContent = S.index;
+    buildIndexButtons();
+    S._ping = setInterval(() => {
+      if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ ping: 1 }));
+    }, 25000);
+  };
+  ws.onmessage = handleWsMessage;
+  ws.onerror = () => log('OTP WebSocket error', 'var(--red)');
+  ws.onclose = () => {
+    clearInterval(S._ping);
+    if (S.connected) { S.connected = false; setConnected(false); log('Disconnected', 'var(--yellow)'); }
+  };
+}
+
+function handleWsMessage(ev) {
+  let d; try { d = JSON.parse(ev.data); } catch(e){ return; }
+  if (d.error && d.error.code === 'InvalidSymbol') {
+    S.symbolIdx++;
+    if (S.symbolIdx < S.SYMBOLS.length) {
+      const next = S.SYMBOLS[S.symbolIdx];
+      S.index = next;
+      this.send(JSON.stringify({ ticks: next, subscribe: 1 }));
+      log('Trying ' + next + '...', 'var(--yellow)');
+      document.getElementById('sbIndex').textContent = next;
+    } else {
+      log('❌ No synthetic indices available for this account', 'var(--red)');
+    }
+    return;
+  }
+  if (d.error) { log('⚠ ' + d.error.code + ': ' + d.error.message, 'var(--red)'); return; }
+  if (d.msg_type === 'tick' && d.tick) onTick(d.tick);
 }
 
 function connectWS(token) {

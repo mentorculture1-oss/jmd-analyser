@@ -583,45 +583,43 @@ function toggleConnect() {
   else connect();
 }
 
-async function generatePKCE() {
-  const array = new Uint8Array(64);
-  crypto.getRandomValues(array);
-  const verifier = btoa(String.fromCharCode(...array))
-    .replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
-  const encoder = new TextEncoder();
-  const digest = await crypto.subtle.digest('SHA-256', encoder.encode(verifier));
-  const challenge = btoa(String.fromCharCode(...new Uint8Array(digest)))
-    .replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
-  return { verifier, challenge };
-}
-
 async function loginWithDeriv() {
-  const { verifier, challenge } = await generatePKCE();
   const state = Math.random().toString(36).substring(2, 18);
-  sessionStorage.setItem('pkce_v', verifier);
   sessionStorage.setItem('oauth_s', state);
+  // Use implicit flow (response_type=token) — returns WebSocket-compatible token directly
   const params = new URLSearchParams({
-    response_type: 'code',
+    response_type: 'token',
     client_id: '33ZtMPCt7tnMFhH4yMnVw',
     redirect_uri: 'https://mentorculture1-oss.github.io/jmd-analyser/',
     scope: 'trade',
-    state: state,
-    code_challenge: challenge,
-    code_challenge_method: 'S256'
+    state: state
   });
   log('Redirecting to Deriv login...', 'var(--cyan)');
   window.location.href = 'https://auth.deriv.com/oauth2/auth?' + params.toString();
 }
 
 async function checkOAuthReturn() {
+  // Check URL fragment (#access_token=...) for implicit flow
+  const hash = new URLSearchParams(window.location.hash.replace('#',''));
+  const fragToken = hash.get('access_token');
+
+  // Check query params for PKCE code or legacy tokens
   const params = new URLSearchParams(window.location.search);
   const code = params.get('code');
-  // Also handle legacy implicit flow (tokens directly in URL)
   const token1 = params.get('token1') || params.get('token');
   const acct1 = params.get('acct1') || params.get('acct');
 
+  if (fragToken) {
+    // Implicit flow token in URL fragment
+    S.oauthToken = fragToken;
+    document.getElementById('loginStatus').textContent = 'Logged in — click START ANALYSIS';
+    document.getElementById('loginStatus').style.color = 'var(--green)';
+    log('✅ Login successful — click START ANALYSIS', 'var(--green)');
+    window.history.replaceState({}, '', window.location.pathname);
+    return;
+  }
+
   if (token1) {
-    // Legacy implicit flow — token directly in URL
     S.oauthToken = token1;
     document.getElementById('loginStatus').textContent = 'Logged in as ' + (acct1 || 'unknown') + ' — click START ANALYSIS';
     document.getElementById('loginStatus').style.color = 'var(--green)';
@@ -631,7 +629,6 @@ async function checkOAuthReturn() {
   }
 
   if (code) {
-    // New PKCE flow — exchange code for token
     const verifier = sessionStorage.getItem('pkce_v');
     log('Exchanging auth code for token...', 'var(--cyan)');
     try {

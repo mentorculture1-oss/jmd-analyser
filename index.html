@@ -674,7 +674,36 @@ function connect() {
     return;
   }
 
-  log('Connecting with Deriv OAuth token...', 'var(--cyan)');
+  log('Fetching account session token...', 'var(--cyan)');
+
+  // Use the OAuth access token to get account info and session token
+  fetch('https://api.deriv.com/v1/accounts', {
+    headers: { 'Authorization': 'Bearer ' + token }
+  })
+  .then(r => r.json())
+  .then(data => {
+    // Try to get session token from accounts
+    const accounts = data.accounts || data.data || [];
+    const acc = Array.isArray(accounts) ? accounts[0] : null;
+    const sessionToken = acc?.session_token || acc?.token;
+
+    if (sessionToken) {
+      log('Got session token — connecting WebSocket...', 'var(--cyan)');
+      connectWithToken(sessionToken);
+    } else {
+      // Fallback: try using the OAuth token directly with WebSocket
+      log('Trying OAuth token directly with WebSocket...', 'var(--cyan)');
+      connectWithToken(token);
+    }
+  })
+  .catch(() => {
+    // REST failed — try OAuth token directly with WebSocket as fallback
+    log('Trying OAuth token directly with WebSocket...', 'var(--cyan)');
+    connectWithToken(token);
+  });
+}
+
+function connectWithToken(token) {
   connectWS(token);
 }
 
@@ -709,7 +738,7 @@ function tryWSEndpoint(token, endpoints, idx) {
 
     if (d.msg_type === 'authorize') {
       if (d.error) {
-        log('❌ Auth error: ' + d.error.message, 'var(--red)');
+        log('❌ Auth error [' + d.error.code + ']: ' + d.error.message, 'var(--red)');
         tryWSEndpoint(token, endpoints, idx + 1);
         return;
       }

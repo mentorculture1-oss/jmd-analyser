@@ -340,6 +340,10 @@ label { font-family:'Share Tech Mono',monospace; font-size:9px; color:var(--dim)
           <button class="sel-btn" onclick="selContract(this,'OVER')">OVER</button>
           <button class="sel-btn" onclick="selContract(this,'UNDER')">UNDER</button>
           <button class="sel-btn" onclick="selContract(this,'DIFF')">DIFF</button>
+          <button class="sel-btn" onclick="selContract(this,'RISE')">RISE</button>
+          <button class="sel-btn" onclick="selContract(this,'FALL')">FALL</button>
+          <button class="sel-btn" onclick="selContract(this,'HIGHER')">HIGHER</button>
+          <button class="sel-btn" onclick="selContract(this,'LOWER')">LOWER</button>
         </div>
 
         <div id="barrierWrap" style="display:none">
@@ -541,6 +545,8 @@ const S = {
   currentStreak: 0,  // positive=even, negative=odd
   streakAlertFired: false,
   oauthToken: null,
+  priceHistory: [],    // full price history for Rise/Fall analysis
+  lastPrice: null,
 
   // Try multiple endpoints + app_ids
   ENDPOINTS: [
@@ -1047,6 +1053,12 @@ function onTick(tick) {
 
   S.digits.push(digit);
   S.prices.push(price);
+  // Track price direction for Rise/Fall analysis
+  if (S.lastPrice !== null) {
+    S.priceHistory.push(price > S.lastPrice ? 1 : price < S.lastPrice ? -1 : 0);
+    if (S.priceHistory.length > 2000) S.priceHistory.shift();
+  }
+  S.lastPrice = price;
   if (S.digits.length > 2000) S.digits.shift();
   if (S.prices.length > 40) S.prices.shift();
   S.tickCount++;
@@ -1144,16 +1156,35 @@ function updatePatterns() {
   const counts = Array(10).fill(0);
   S.digits.forEach(d => counts[d]++);
 
-  // Even/odd ratio
-  const evenCount = [0,2,4,6,8].reduce((s,i) => s + counts[i], 0);
-  const oddCount = n - evenCount;
-  const evenPct = ((evenCount / n) * 100).toFixed(1);
-  const oddPct = ((oddCount / n) * 100).toFixed(1);
-  document.getElementById('eoRatio').textContent = evenPct + '% / ' + oddPct + '%';
-  const eoBar = document.getElementById('eoBar');
-  const bias = parseFloat(evenPct) > 55 ? '▲ EVEN BIAS' : parseFloat(oddPct) > 55 ? '▲ ODD BIAS' : '≈ BALANCED';
-  eoBar.textContent = bias;
-  eoBar.style.color = parseFloat(evenPct) > 55 ? 'var(--cyan)' : parseFloat(oddPct) > 55 ? 'var(--purple)' : 'var(--dim)';
+  // Even/odd ratio OR Rise/Fall ratio
+  const isRiseFall = ['RISE','FALL','HIGHER','LOWER'].includes(S.contract);
+  if (isRiseFall && S.priceHistory.length >= 10) {
+    const rises = S.priceHistory.filter(v => v > 0).length;
+    const falls = S.priceHistory.filter(v => v < 0).length;
+    const total = S.priceHistory.length;
+    const risePct = ((rises/total)*100).toFixed(1);
+    const fallPct = ((falls/total)*100).toFixed(1);
+    document.getElementById('eoRatio').textContent = risePct + '% / ' + fallPct + '%';
+    document.getElementById('eoRatio').style.color = 'var(--green)';
+    const eoBar = document.getElementById('eoBar');
+    const bias = parseFloat(risePct) > 55 ? '▲ RISE BIAS' : parseFloat(fallPct) > 55 ? '▼ FALL BIAS' : '≈ BALANCED';
+    eoBar.textContent = bias;
+    eoBar.style.color = parseFloat(risePct) > 55 ? 'var(--green)' : parseFloat(fallPct) > 55 ? 'var(--red)' : 'var(--dim)';
+    // Update label
+    document.querySelector('#eoRatio').closest('.pat-card').querySelector('.pat-label').textContent = 'RISE / FALL RATIO';
+  } else {
+    document.querySelector('#eoRatio').closest('.pat-card').querySelector('.pat-label').textContent = 'EVEN / ODD RATIO';
+    const evenCount = [0,2,4,6,8].reduce((s,i) => s + counts[i], 0);
+    const oddCount = n - evenCount;
+    const evenPct = ((evenCount / n) * 100).toFixed(1);
+    const oddPct = ((oddCount / n) * 100).toFixed(1);
+    document.getElementById('eoRatio').textContent = evenPct + '% / ' + oddPct + '%';
+    document.getElementById('eoRatio').style.color = 'var(--cyan)';
+    const eoBar = document.getElementById('eoBar');
+    const bias = parseFloat(evenPct) > 55 ? '▲ EVEN BIAS' : parseFloat(oddPct) > 55 ? '▲ ODD BIAS' : '≈ BALANCED';
+    eoBar.textContent = bias;
+    eoBar.style.color = parseFloat(evenPct) > 55 ? 'var(--cyan)' : parseFloat(oddPct) > 55 ? 'var(--purple)' : 'var(--dim)';
+  }
 
   // Streak
   const absStreak = Math.abs(S.currentStreak);
@@ -1257,7 +1288,50 @@ function computeConfidence() {
       conf = 50 + (0.10 - blended) * 556;
       break;
     }
-    default: conf = 50;
+    case 'RISE': {
+      // Analyse recent price direction — how many of last N ticks were rises
+      const ph = S.priceHistory;
+      if (ph.length < 10) { conf = 50; break; }
+      const recent = ph.slice(-Math.min(200, ph.length));
+      const rises = recent.filter(v => v > 0).length;
+      const riseRate = rises / recent.length;
+      // Also weight very recent (last 20)
+      const veryRecent = ph.slice(-20);
+      const vrRises = veryRecent.filter(v => v > 0).length / veryRecent.length;
+      conf = 50 + (riseRate * 0.4 + vrRises * 0.6 - 0.5) * 150;
+      // Streak bonus: if falling streak, rise more likely
+      if (S.currentStreak < -3) conf += 8;
+      break;
+    }
+    case 'FALL': {
+      const ph = S.priceHistory;
+      if (ph.length < 10) { conf = 50; break; }
+      const recent = ph.slice(-Math.min(200, ph.length));
+      const falls = recent.filter(v => v < 0).length;
+      const fallRate = falls / recent.length;
+      const veryRecent = ph.slice(-20);
+      const vrFalls = veryRecent.filter(v => v < 0).length / veryRecent.length;
+      conf = 50 + (fallRate * 0.4 + vrFalls * 0.6 - 0.5) * 150;
+      if (S.currentStreak > 3) conf += 8;
+      break;
+    }
+    case 'HIGHER': {
+      // HIGHER: exit price strictly higher than entry — similar to RISE but over contract duration
+      const ph = S.priceHistory;
+      if (ph.length < 10) { conf = 50; break; }
+      const recent = ph.slice(-Math.min(100, ph.length));
+      const rises = recent.filter(v => v > 0).length / recent.length;
+      conf = 50 + (rises - 0.5) * 160;
+      break;
+    }
+    case 'LOWER': {
+      const ph = S.priceHistory;
+      if (ph.length < 10) { conf = 50; break; }
+      const recent = ph.slice(-Math.min(100, ph.length));
+      const falls = recent.filter(v => v < 0).length / recent.length;
+      conf = 50 + (falls - 0.5) * 160;
+      break;
+    }
   }
 
   return Math.max(5, Math.min(99, conf));
